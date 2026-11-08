@@ -1,0 +1,12 @@
+import {localBucket} from './shared/local_bucket.mjs';
+const previewBucket=localBucket(new URL('.local/art/',import.meta.url).pathname.replace(/^\/(\w:)/,'$1'));
+import {existsSync,mkdirSync} from 'node:fs';
+import {localDatabase} from './tests/local_database.mjs';
+mkdirSync(new URL('.local/',import.meta.url),{recursive:true});
+const previewDB=localDatabase(new URL('.local/library.sqlite',import.meta.url).pathname.replace(/^\/(\w:)/,'$1'));
+if(existsSync(new URL('.env.local',import.meta.url)))process.loadEnvFile(new URL('.env.local',import.meta.url).pathname.replace(/^\/(\w:)/,'$1'));
+import http from 'node:http';
+import {loadAssets} from './site_assets.mjs';
+import {makeWorker} from './worker.mjs';
+const port=Number(process.env.PORT||4173);
+const server=http.createServer(async(req,res)=>{try{const origin='http://127.0.0.1:'+port;if(req.headers.host!=='127.0.0.1:'+port&&req.headers.host!=='localhost:'+port){res.writeHead(403);res.end();return;}if(['POST','PUT','PATCH','DELETE'].includes(req.method)&&req.headers.origin&&!['http://127.0.0.1:'+port,'http://localhost:'+port].includes(req.headers.origin)){res.writeHead(403);res.end();return;}const chunks=[];let total=0;for await(const part of req){total+=part.length;if(total>16000000){res.writeHead(413);res.end();return;}chunks.push(part);}const assets=await loadAssets();const request=new Request(origin+req.url,{method:req.method,headers:{...req.headers,'oai-authenticated-user-id':'local-preview','oai-authenticated-user-email':'local-preview@example.test'},...(['GET','HEAD'].includes(req.method)?{}:{body:Buffer.concat(chunks)})});const response=await makeWorker(assets).fetch(request,{DB:previewDB,BUCKET:previewBucket,OPENAI_API_KEY:process.env.OPENAI_API_KEY,OPENAI_MODEL:process.env.OPENAI_MODEL});res.writeHead(response.status,Object.fromEntries(response.headers));res.end(Buffer.from(await response.arrayBuffer()));}catch(e){res.writeHead(500);res.end(e.message);}});server.listen(port,'127.0.0.1',()=>console.log('Local: http://127.0.0.1:'+port));

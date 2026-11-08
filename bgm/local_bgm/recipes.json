@@ -1,0 +1,31 @@
+{
+  "model": "stable_audio_3_small_music.safetensors",
+  "duration_seconds": 30,
+  "steps": 8,
+  "samples": [
+    {
+      "id": "dungeon_exploration",
+      "title": "던전 탐험 · 달빛의 실습구역",
+      "target_bpm": 84,
+      "seed": 2026110701,
+      "description": "희미한 달빛과 마법 조명 아래를 탐색하는 신비로운 분위기. 첼레스타와 피아노, 부드러운 현악 중심.",
+      "prompt": "Instrumental fantasy JRPG dungeon exploration music with delicate celesta and soft piano arpeggios, warm sustained strings, a gentle plucked bass pulse and sparse brushed percussion, creating a mysterious moonlit magic academy atmosphere with restrained tension and a memorable understated melody. Clear spacious arrangement suitable for repeated background listening, moderate dynamics, purely instrumental with no vocals or choir. BPM: 84. Length: 30 seconds."
+    },
+    {
+      "id": "normal_battle",
+      "title": "일반 전투 · 야간 실습",
+      "target_bpm": 128,
+      "seed": 2026110702,
+      "description": "경쾌한 현악 리듬과 선명한 피아노 선율. 빠르지만 전투 효과음을 가리지 않는 편곡.",
+      "prompt": "Instrumental fantasy JRPG battle music with rhythmic staccato strings, a clear catchy piano melody, plucked bass and tight energetic drums, with subtle bell accents connecting it to a moonlit magic academy setting. Determined adventurous energy, brisk steady groove, clear uncluttered arrangement with space for game sound effects, controlled dynamics and a repeating musical phrase. Purely instrumental with no vocals or choir. BPM: 128. Length: 30 seconds."
+    },
+    {
+      "id": "boss_battle",
+      "title": "보스전 · 게이트의 수호자",
+      "target_bpm": 148,
+      "seed": 2026110703,
+      "description": "낮은 현악과 금관, 묵직한 타악으로 위압감을 주고 피아노 선율로 같은 세계관의 느낌을 유지.",
+      "prompt": "Instrumental fantasy JRPG boss battle music with driving low string ostinatos, dramatic brass phrases, an urgent piano motif, deep controlled orchestral percussion and subtle shimmering bell accents. Powerful ominous adversary and heroic determination in a moonlit magical academy dungeon, strong forward momentum, clear melodic structure, focused arrangement without excessive cinematic booms, stable intensity suitable for a gameplay loop. Purely instrumental with no vocals or choir. BPM: 148. Length: 30 seconds."
+    }
+  ]
+}

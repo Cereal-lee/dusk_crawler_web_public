@@ -1,0 +1,35 @@
+dist/
+.sites/
+node_modules/
+.env*
+*.zip
+
+outputs/
+.local/
+
+__pycache__/
+.bridge_key
+local_bgm/.venv/
+local_bgm/ComfyUI/
+local_bgm/library/
+local_bgm/output/
+local_bgm/logs/
+local_bgm/*.part
+
+bgm/runtime/
+bgm/local_bgm/.venv/
+
+# Original catalog and import utilities: private local copies, excluded from Git builds.
+/pxf/original/
+/pxf/import_original.py
+/pxf/render_original.mjs
+
+# Retired upstream renderer kept locally for visual regression comparisons only.
+/pxf/pxf_engine.mjs
+
+!.env.example
+.openai/
+*.pem
+*.key
+*.sqlite*
+*.safetensors

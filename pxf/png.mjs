@@ -1,0 +1,7 @@
+// Portable PNG writer using uncompressed DEFLATE blocks (no native dependencies).
+const u32=v=>new Uint8Array([v>>>24,v>>>16&255,v>>>8&255,v&255]);
+const concat=arrays=>{const a=new Uint8Array(arrays.reduce((s,v)=>s+v.length,0));let offset=0;for(const v of arrays){a.set(v,offset);offset+=v.length;}return a;};
+function crc32(bytes){let crc=0xffffffff;for(const byte of bytes){crc^=byte;for(let j=0;j<8;j++)crc=(crc>>>1)^((crc&1)?0xedb88320:0);}return (crc^0xffffffff)>>>0;}
+function chunk(type,data){const bytes=concat([new TextEncoder().encode(type),data]);return concat([u32(data.length),bytes,u32(crc32(bytes))]);}
+export function png(width,height,rgba){const raw=new Uint8Array(height*(width*4+1));for(let y=0;y<height;y++)raw.set(rgba.subarray(y*width*4,(y+1)*width*4),y*(width*4+1)+1);const blocks=[new Uint8Array([0x78,0x01])];for(let p=0;p<raw.length;p+=65535){const len=Math.min(65535,raw.length-p);blocks.push(new Uint8Array([p+len===raw.length?1:0,len&255,len>>>8,(~len)&255,((~len)>>>8)&255]),raw.subarray(p,p+len));}let a=1,b=0;for(const v of raw){a=(a+v)%65521;b=(b+a)%65521;}blocks.push(u32((b*65536+a)>>>0));return concat([new Uint8Array([137,80,78,71,13,10,26,10]),chunk('IHDR',concat([u32(width),u32(height),new Uint8Array([8,6,0,0,0])])),chunk('IDAT',concat(blocks)),chunk('IEND',new Uint8Array())]);}
+export function base64(bytes){let s='';for(let i=0;i<bytes.length;i+=8192)s+=String.fromCharCode(...bytes.subarray(i,i+8192));return btoa(s);}
