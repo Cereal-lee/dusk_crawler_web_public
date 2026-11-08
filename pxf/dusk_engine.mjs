@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import {shapeRaster,arcRaster,strokeRaster,spikeRaster,particlesRaster,lightningRaster} from './generators.mjs';
+import {shapeRaster,arcRaster,strokeRaster,spikeRaster,particlesRaster,lightningRaster,seededSequence} from './generators.mjs';
 import {NODE_CONTRACT} from './node_contract.mjs';
 
 // Dusk raster engine. No upstream evaluator or rendering code is loaded.
@@ -21,7 +21,7 @@ function animated(v,time,frame){
  if('a'in v){const begin=v.t0??0,end=v.t1??1,u=end>begin?unit((time-begin)/(end-begin)):+(time>=end);return mix(v.a,v.b,(easing[v.e]||easing.linear)(u));}
  return v;
 }
-function random(seed){let state=(seed>>>0)||1;return ()=>{state^=state<<13;state^=state>>>17;state^=state<<5;return (state>>>0)/4294967296;};}
+const random=seededSequence;
 function cellRandom(x,y,seed){let v=(Math.imul(x|0,374761393)+Math.imul(y|0,668265263)+Math.imul(seed|0,1442695041))|0;v=Math.imul(v^(v>>>13),1274126177);return ((v^(v>>>16))>>>0)/4294967296;}
 function noise(x,y,seed){const ix=Math.floor(x),iy=Math.floor(y),sx=wrap(x),sy=wrap(y),u=sx*sx*(3-2*sx),v=sy*sy*(3-2*sy);return mix(mix(cellRandom(ix,iy,seed),cellRandom(ix+1,iy,seed),u),mix(cellRandom(ix,iy+1,seed),cellRandom(ix+1,iy+1,seed),u),v);}
 function fresh(size){return new Float32Array(size*size*4);}

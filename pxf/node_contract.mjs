@@ -47,3 +47,534 @@ export const NODE_CONTRACT={
  AuraShell:node('Projected aura','filter',['Shell','Rise'],[f('cx',.5),f('lipY',.55),f('tipY',.1),f('baseY',.9),scalar('radius',20,.01,256),scalar('tilt',.3,.01,2),scalar('flare',.2,-.9,3),choose('range','full',['full','front','rear']),scalar('twist',0,-8,8),scalar('uvX',1,.01,16),scalar('spin',0,-32,32),scalar('riseUV',1,.01,8),scalar('stretch',1,.01,8),f('riseAlpha',.7),scalar('riseCutoff',1,.01,1),f('rearAlpha',.4),f('shade',.3)]),
  Revolve:node('Lathed surface','filter',['Surface','Cap'],[f('cx',.5),f('yTop',.2),f('yBot',.8),scalar('rEnd',10,.01,256),scalar('rMid',20,.01,256),scalar('scale',1,.01,8),scalar('bulgePow',1,.01,8),f('shade',.3),scalar('light',.2,-1,1),scalar('shadePow',1,.01,8),scalar('ratio',.25,.01,2),choose('range','full',['full','front','rear']),scalar('uvX',1,.01,16),scalar('spin',0,-32,32),choose('cap','none',['none','top','bottom'])])
 };
+
+// Saved-graph interoperability: omitted values and accepted wire-format tokens.
+// Keep public labels/layout; these functional defaults preserve authored playback.
+const SAVED_GRAPH_COMPATIBILITY = {
+ "Shape": {
+  "size": {
+   "d": 12
+  },
+  "points": {
+   "d": 5,
+   "min": 2
+  },
+  "falloff": {
+   "d": 0
+  }
+ },
+ "Noise": {
+  "type": {
+   "d": "fbm",
+   "opt": [
+    "smooth",
+    "cells",
+    "ridged",
+    "fbm"
+   ]
+  },
+  "scaleX": {
+   "d": 4,
+   "t": "int"
+  },
+  "scaleY": {
+   "d": 4,
+   "t": "int"
+  },
+  "seed": {
+   "d": 1
+  }
+ },
+ "Gradient": {
+  "type": {
+   "d": "linear"
+  },
+  "angle": {
+   "d": 90
+  }
+ },
+ "Particles": {
+  "count": {
+   "d": 30,
+   "max": 600
+  },
+  "seed": {
+   "d": 1
+  },
+  "span": {
+   "d": 1
+  },
+  "life": {
+   "d": 0.5
+  },
+  "lifeVar": {
+   "d": 0.3
+  },
+  "aw": {
+   "d": 8
+  },
+  "ah": {
+   "d": 8
+  },
+  "dirMode": {
+   "d": "fixed",
+   "opt": [
+    "direction",
+    "outward",
+    "inward",
+    "fixed"
+   ]
+  },
+  "spread": {
+   "d": 360
+  },
+  "speed": {
+   "d": 1
+  },
+  "speedVar": {
+   "d": 0.5
+  },
+  "gravity": {
+   "d": 0
+  },
+  "drag": {
+   "d": 0
+  },
+  "sizeA": {
+   "d": 2
+  },
+  "pshape": {
+   "d": "square"
+  },
+  "bounce": {
+   "d": 0.35
+  },
+  "brightVar": {
+   "d": 0
+  }
+ },
+ "Lightning": {
+  "x0": {
+   "d": 0.5
+  },
+  "y0": {
+   "d": 0.05
+  },
+  "x1": {
+   "d": 0.5
+  },
+  "y1": {
+   "d": 0.95
+  },
+  "detail": {
+   "d": 5
+  },
+  "jag": {
+   "d": 0.35
+  },
+  "branchLen": {
+   "d": 0.35
+  },
+  "seed": {
+   "d": 3
+  },
+  "thick": {
+   "d": 1,
+   "t": "int"
+  }
+ },
+ "Arc": {
+  "thick": {
+   "d": 8
+  },
+  "start": {
+   "d": -150
+  },
+  "head": {
+   "max": 1.5
+  },
+  "tail": {
+   "d": 0.7
+  },
+  "taper": {
+   "d": 1.2
+  }
+ },
+ "Repeat": {
+  "count": {
+   "d": 6
+  },
+  "angleStep": {
+   "d": 60
+  },
+  "dx": {
+   "d": 0
+  },
+  "scaleStep": {
+   "d": 0,
+   "min": -1
+  },
+  "fadeStep": {
+   "d": 0
+  },
+  "delay": {
+   "t": "num"
+  },
+  "mode": {
+   "d": "add"
+  },
+  "seed": {
+   "d": 1
+  },
+  "layout": {
+   "d": "step",
+   "opt": [
+    "linear",
+    "bezier",
+    "step"
+   ]
+  },
+  "scale1": {
+   "d": 1
+  },
+  "bx0": {
+   "d": 0.5
+  },
+  "by0": {
+   "d": 0.2
+  },
+  "bx1": {
+   "d": 0.5
+  },
+  "by1": {
+   "d": 0.4
+  },
+  "bx2": {
+   "d": 0.5
+  },
+  "by2": {
+   "d": 0.6
+  },
+  "bx3": {
+   "d": 0.5
+  },
+  "by3": {
+   "d": 0.8
+  }
+ },
+ "Blur": {
+  "radius": {
+   "d": 1
+  },
+  "passes": {
+   "d": 2
+  }
+ },
+ "Glow": {
+  "strength": {
+   "d": 1
+  }
+ },
+ "Dither": {
+  "strength": {
+   "d": 1
+  }
+ },
+ "Displace": {
+  "amount": {
+   "d": 4
+  },
+  "angle": {
+   "d": 90
+  }
+ },
+ "Polar": {
+  "rIn": {
+   "d": 4
+  },
+  "rOut": {
+   "d": 30
+  },
+  "invert": {
+   "d": true
+  }
+ },
+ "Palette": {
+  "colors": {
+   "d": [
+    "#4a0d12",
+    "#a3231b",
+    "#e8591c",
+    "#ffb030",
+    "#fff1b8"
+   ]
+  },
+  "cutoff": {
+   "d": 0.1
+  },
+  "mode": {
+   "d": "bands",
+   "opt": [
+    "steps",
+    "smooth",
+    "bands"
+   ]
+  }
+ },
+ "Tint": {
+  "color": {
+   "d": "#ffffff"
+  }
+ },
+ "Outline": {
+  "color": {
+   "d": "#10142e"
+  },
+  "threshold": {
+   "d": 0.5
+  },
+  "corners": {
+   "d": false
+  }
+ },
+ "Spike": {
+  "x0": {
+   "d": 0.4
+  },
+  "y0": {
+   "d": 0.85
+  },
+  "x1": {
+   "d": 0.6
+  },
+  "y1": {
+   "d": 0.15
+  },
+  "width": {
+   "d": 10
+  },
+  "base": {
+   "d": 0.45
+  },
+  "tip": {
+   "d": 0.8
+  },
+  "facet": {
+   "d": 0.22
+  },
+  "ridge": {
+   "d": 0.12
+  },
+  "shine": {
+   "max": 1.5
+  },
+  "shineW": {
+   "d": 0.1
+  },
+  "shineAmp": {
+   "d": 0.6
+  }
+ },
+ "Checker": {
+  "a": {
+   "d": 1
+  },
+  "b": {
+   "d": 0
+  },
+  "dot": {
+   "d": 0.35
+  }
+ },
+ "Quantize": {
+  "colors": {
+   "d": [
+    "#be4a2f",
+    "#d77643",
+    "#ead4aa",
+    "#e4a672",
+    "#b86f50",
+    "#733e39",
+    "#3e2731",
+    "#a22633",
+    "#e43b44",
+    "#f77622",
+    "#feae34",
+    "#fee761",
+    "#63c74d",
+    "#3e8948",
+    "#265c42",
+    "#193c3e",
+    "#124e89",
+    "#0099db",
+    "#2ce8f5",
+    "#ffffff",
+    "#c0cbdc",
+    "#8b9bb4",
+    "#5a6988",
+    "#3a4466",
+    "#262b44",
+    "#181425",
+    "#ff0044",
+    "#68386c",
+    "#b55088",
+    "#f6757a",
+    "#e8b796",
+    "#c28569"
+   ]
+  },
+  "alpha": {
+   "d": "keep",
+   "opt": [
+    "soft",
+    "hard",
+    "keep"
+   ]
+  },
+  "threshold": {
+   "d": 0.5
+  }
+ },
+ "Grid": {
+  "lo": {
+   "d": 0.3
+  },
+  "hi": {
+   "d": 1
+  },
+  "gapV": {
+   "d": 0.1
+  },
+  "seed": {
+   "d": 1
+  }
+ },
+ "AuraShell": {
+  "baseY": {
+   "d": 0.82
+  },
+  "lipY": {
+   "d": 0.49
+  },
+  "tipY": {
+   "d": 0.12
+  },
+  "radius": {
+   "d": 32
+  },
+  "tilt": {
+   "d": 0.32,
+   "min": 0
+  },
+  "flare": {
+   "d": 0.04
+  },
+  "twist": {
+   "d": 0.07
+  },
+  "stretch": {
+   "d": 3
+  },
+  "riseUV": {
+   "d": 0.25
+  },
+  "riseCutoff": {
+   "d": 0.9,
+   "min": 0,
+   "max": 1.6
+  },
+  "riseAlpha": {
+   "d": 0.6
+  },
+  "shade": {
+   "d": 0.25
+  },
+  "rearAlpha": {
+   "d": 0.55
+  }
+ },
+ "Revolve": {
+  "yTop": {
+   "d": 0.28
+  },
+  "yBot": {
+   "d": 0.75
+  },
+  "rEnd": {
+   "d": 16,
+   "min": 0
+  },
+  "rMid": {
+   "d": 20.5,
+   "min": 0
+  },
+  "ratio": {
+   "d": 0.75,
+   "min": 0
+  },
+  "uvX": {
+   "d": 2
+  },
+  "cap": {
+   "d": "bottom"
+  },
+  "shade": {
+   "d": 0.55
+  },
+  "shadePow": {
+   "d": 0.8
+  },
+  "light": {
+   "d": 0
+  }
+ },
+ "Stroke": {
+  "x0": {
+   "d": 0.2
+  },
+  "y0": {
+   "d": 0.5
+  },
+  "x1": {
+   "d": 0.4
+  },
+  "y1": {
+   "d": 0.3
+  },
+  "x2": {
+   "d": 0.6
+  },
+  "y2": {
+   "d": 0.7
+  },
+  "x3": {
+   "d": 0.8
+  },
+  "y3": {
+   "d": 0.5
+  },
+  "width": {
+   "d": 2
+  },
+  "taper": {
+   "d": 1
+  },
+  "vA": {
+   "d": 0.6
+  },
+  "vB": {
+   "d": 0.3
+  }
+ },
+ "Output": {
+  "alpha": {
+   "d": "hard"
+  },
+  "threshold": {
+   "d": 0.5
+  }
+ }
+};
+for (const [type,fields] of Object.entries(SAVED_GRAPH_COMPATIBILITY)) {
+ for (const param of NODE_CONTRACT[type].params) Object.assign(param,fields[param.n]||{});
+}

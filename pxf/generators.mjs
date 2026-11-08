@@ -1,158 +1,140 @@
 // SPDX-License-Identifier: MIT
-// Dusk public-edition geometry. This module uses geometric coverage tests,
-// cubic curves, analytic trajectories and seeded subdivision, not a reference
-// renderer. It intentionally does not reproduce another engine pixel-for-pixel.
-const tau=Math.PI*2;
-const limit=v=>Math.max(0,Math.min(1,v));
-const angle=v=>v*Math.PI/180;
-const lerp=(a,b,t)=>a+(b-a)*t;
-const buffer=n=>new Float32Array(n*n*4);
-function sample(seed,index,channel=0){
- let state=2166136261;
- for(const letter of `${seed}:${index}:${channel}`)state=Math.imul(state^letter.charCodeAt(0),16777619);
- for(let round=0;round<3;round++){state^=state<<13;state^=state>>>17;state^=state<<5;}
- return (state>>>0)/4294967296;
+// Pixel-centre rasterization for saved Dusk graphs. Parameter units, temporal
+// envelopes and seeded sequences are part of the graph playback contract.
+const TAU=2*Math.PI, deg=a=>a*Math.PI/180, sat=a=>Math.max(0,Math.min(1,a));
+const fraction=a=>a-Math.floor(a), interpolate=(a,b,t)=>a+(b-a)*t;
+const surface=n=>new Float32Array(4*n*n);
+function put(a,n,x,y,value,add=false){
+ if(x<0||y<0||x>=n||y>=n)return;
+ const k=(y*n+x)*4,v=sat(add?a[k+3]+value:Math.max(a[k+3],value));a.fill(v,k,k+4);
 }
-function ink(out,n,x,y,value,add=false){
- x=Math.floor(x);y=Math.floor(y);if(x<0||y<0||x>=n||y>=n)return;
- const at=4*(y*n+x),v=limit(add?out[at+3]+value:Math.max(out[at+3],value));
- out.fill(v,at,at+4);
+function disk(a,n,cx,cy,r,v){
+ for(let y=Math.max(0,Math.floor(cy-r));y<Math.min(n,Math.ceil(cy+r+1));y++)
+  for(let x=Math.max(0,Math.floor(cx-r));x<Math.min(n,Math.ceil(cx+r+1));x++)
+   if((x+.5-cx)**2+(y+.5-cy)**2<=r*r)put(a,n,x,y,v);
 }
-function disk(out,n,cx,cy,radius,value,add=false){
- if(radius<=0||value<=0)return;
- if(radius<.65){ink(out,n,cx,cy,value,add);return;}
- for(let y=Math.max(0,Math.floor(cy-radius));y<Math.min(n,cy+radius);y++)
-  for(let x=Math.max(0,Math.floor(cx-radius));x<Math.min(n,cx+radius);x++)
-   if((x+.5-cx)**2+(y+.5-cy)**2<=radius*radius)ink(out,n,x,y,value,add);
+// Mulberry32: keep seeded playback stable when opening older authored graphs.
+export function seededSequence(seed){
+ let state=seed>>>0;
+ return ()=>{state=(state+0x6d2b79f5)>>>0;let v=Math.imul(state^(state>>>15),state|1);v^=v+Math.imul(v^(v>>>7),v|61);return ((v^(v>>>14))>>>0)/4294967296;};
 }
-function line(out,n,a,b,width,value){
- const dx=b[0]-a[0],dy=b[1]-a[1],steps=Math.max(1,Math.ceil(Math.hypot(dx,dy)*1.5));
- for(let j=0;j<=steps;j++)disk(out,n,a[0]+dx*j/steps,a[1]+dy*j/steps,width/2,value);
-}
-function polygonContains(x,y,vertices){
- let inside=false;
- for(let i=0,j=vertices.length-1;i<vertices.length;j=i++){
-  const a=vertices[i],b=vertices[j];
-  if((a[1]>y)!==(b[1]>y)&&x<(b[0]-a[0])*(y-a[1])/(b[1]-a[1])+a[0])inside=!inside;
- }
- return inside;
+function cellSample(x,y,seed){
+ let hash=(Math.imul(x|0,374761393)+Math.imul(y|0,668265263)+Math.imul(seed|0,1442695041))|0;
+ hash=Math.imul(hash^(hash>>>13),1274126177);return ((hash^(hash>>>16))>>>0)/4294967296;
 }
 export function shapeRaster(n,p){
- const out=buffer(n),r=p.size;if(r<=0)return out;
- const cosine=Math.cos(angle(p.rot)),sine=Math.sin(angle(p.rot));
- const vertices=Array.from({length:p.shape==='star'?p.points*2:p.points},(_,i)=>{
-  const count=p.shape==='star'?p.points*2:p.points,a=i*tau/count-Math.PI/2;
-  const radius=p.shape==='star'&&i%2?p.size2:1;return [Math.cos(a)*radius,Math.sin(a)*radius];
- });
- const covered=(x,y)=>{
-  const radius=Math.hypot(x,y);
-  switch(p.shape){
-   case 'square':return Math.max(Math.abs(x),Math.abs(y))<=1;
-   case 'diamond':return Math.abs(x)+Math.abs(y)<=1;
-   case 'polygon':case 'star':return polygonContains(x,y,vertices);
-   case 'shard':return polygonContains(x,y,[[0,-1],[Math.max(.08,p.size2),.65],[0,.35],[-Math.max(.08,p.size2),.65]]);
-   case 'cross':return Math.max(Math.abs(x),Math.abs(y))<=1&&Math.min(Math.abs(x),Math.abs(y))<=Math.max(.05,p.size2);
-   case 'crescent':return radius<=1&&Math.hypot(x-.4,y)>.8;
-   case 'ring':return radius<=1&&radius>=1-p.size2;
-   default:return radius<=1;
-  }
- };
+ const result=surface(n);if(p.size<=.25||p.intensity<=0)return result;
+ const c=Math.cos(deg(p.rot)),s=Math.sin(deg(p.rot)),radius=Math.max(.0001,p.size);
  for(let y=0;y<n;y++)for(let x=0;x<n;x++){
-  const dx=(x+.5)/r-p.x*n/r,dy=(y+.5)/r-p.y*n/r;
-  const u=dx*cosine+dy*sine,v=(-dx*sine+dy*cosine)/p.aspect;
-  if(!covered(u,v))continue;
-  const inset=1-p.stroke/r;if(p.stroke>0&&inset>0&&covered(u/inset,v/inset))continue;
-  ink(out,n,x,y,p.intensity*(1-p.falloff*limit(Math.hypot(u,v))));
+  const dx=x+.5-p.x*n,dy=(y+.5-p.y*n)/p.aspect;
+  const u=dx*c+dy*s,v=-dx*s+dy*c,radial=Math.hypot(u,v),a=Math.atan2(v,u);
+  let edge=radius,distance=radial;
+  switch(p.shape){
+   case 'square':distance=Math.max(Math.abs(u),Math.abs(v));break;
+   case 'diamond':distance=Math.abs(u)+Math.abs(v);break;
+   case 'polygon':{const sides=Math.max(3,Math.round(p.points)),sector=TAU/sides;edge=radius*Math.cos(Math.PI/sides)/Math.cos(fraction((a+Math.PI/2)/sector)*sector-sector/2);break;}
+   case 'star':{const phase=fraction((a+Math.PI/2)*Math.round(p.points)/TAU);edge=radius*interpolate(1,p.size2,2*Math.min(phase,1-phase));break;}
+   case 'shard':distance=(v<0?-v:v/.35)+Math.abs(u)/Math.max(.04,p.size2);break;
+   case 'cross':{const arm=Math.max(.05,p.size2);distance=Math.min(Math.max(Math.abs(u),Math.abs(v)/arm),Math.max(Math.abs(v),Math.abs(u)/arm));break;}
+   case 'ring':{const band=Math.max(.5,p.size2*radius);distance=Math.abs(radial-radius+band/2)/(band/2)*radius;break;}
+  }
+  if(distance>edge)continue;
+  if(p.shape==='crescent'&&Math.hypot(u,v+radius*Math.max(.05,p.size2))<=radius)continue;
+  if(p.stroke>0&&distance<edge*(1-p.stroke/radius))continue;
+  put(result,n,x,y,p.intensity*(1-p.falloff*sat(distance/edge)));
  }
- return out;
+ return result;
 }
 export function arcRaster(n,p){
- const out=buffer(n),start=Math.max(0,p.head-p.tail),end=p.head;
- if(end<=start||p.thick<=0)return out;
- const steps=Math.max(16,Math.ceil(Math.abs(p.sweep)*Math.max(1,p.radius)/45));
- const c=Math.cos(angle(p.rot)),s=Math.sin(angle(p.rot));
- for(let i=0;i<=steps;i++){
-  const t=lerp(start,end,i/steps),a=angle(p.start+p.sweep*t),width=p.thick*Math.pow(Math.max(.02,i/steps),p.taper);
-  const radius=p.radius-width/2,u=radius*Math.cos(a),v=radius*Math.sin(a)*p.aspect;
-  disk(out,n,p.x*n+u*c-v*s,p.y*n+u*s+v*c,width/2,p.intensity*lerp(.2,1,i/steps));
+ const result=surface(n),c=Math.cos(deg(p.rot)),s=Math.sin(deg(p.rot));
+ for(let y=0;y<n;y++)for(let x=0;x<n;x++){
+  const dx=x+.5-p.x*n,dy=y+.5-p.y*n,u=dx*c+dy*s,v=(-dx*s+dy*c)/p.aspect;
+  const phase=fraction((Math.atan2(v,u)-deg(p.start))*Math.sign(p.sweep||1)/TAU)*TAU/Math.max(1e-8,Math.abs(deg(p.sweep)));
+  const along=(phase-p.head+p.tail)/p.tail;if(phase>1||along<0||along>1)continue;
+  const width=p.thick*Math.pow(along,p.taper)*Math.min(1,(p.head-phase)*Math.abs(p.sweep)/12+.15),radius=Math.hypot(u,v);
+  if(radius>p.radius||radius<p.radius-width)continue;
+  const edgeLight=width>0?(radius-p.radius+width)/width:1;
+  put(result,n,x,y,p.intensity*(.35+.65*along)*(.55+.45*edgeLight));
  }
- return out;
+ return result;
 }
-function cubic(p,t){
- const a=[p.x0,p.y0],b=[p.x1,p.y1],c=[p.x2,p.y2],d=[p.x3,p.y3];
- // De Casteljau interpolation avoids special cases at either endpoint.
- const ab=a.map((v,i)=>lerp(v,b[i],t)),bc=b.map((v,i)=>lerp(v,c[i],t)),cd=c.map((v,i)=>lerp(v,d[i],t));
- const left=ab.map((v,i)=>lerp(v,bc[i],t)),right=bc.map((v,i)=>lerp(v,cd[i],t));
- return left.map((v,i)=>lerp(v,right[i],t));
+function bezierPoint(p,t){
+ const u=1-t;return ['x','y'].map(a=>u*u*u*p[a+'0']+3*u*u*t*p[a+'1']+3*u*t*t*p[a+'2']+t*t*t*p[a+'3']);
 }
 export function strokeRaster(n,p){
- const out=buffer(n);if(p.to<=p.from||p.width<=0)return out;
- const steps=n*4;
- for(let i=0;i<=steps;i++){
-  const t=lerp(p.from,p.to,i/steps),u=p.span?i/steps:t;
-  const [x,y]=cubic(p,t),envelope=4*u*(1-u),width=p.width*lerp(1,envelope,p.taper);
-  const value=u<.5?lerp(p.vA,p.vM,u*2):lerp(p.vM,p.vB,u*2-1);
-  disk(out,n,x*n,y*n,width/2,value*p.intensity);
+ const result=surface(n);if(p.to<=p.from||p.width<=0)return result;
+ let length=0,last=bezierPoint(p,0);
+ for(let k=1;k<=32;k++){const point=bezierPoint(p,k/32);length+=Math.hypot(point[0]-last[0],point[1]-last[1])*n;last=point;}
+ const steps=Math.max(8,Math.ceil(length*(p.to-p.from)*3));
+ for(let k=0;k<=steps;k++){
+  const t=interpolate(p.from,p.to,k/steps),phase=p.span?k/steps:t,point=bezierPoint(p,t);
+  const width=p.width*interpolate(1,Math.sqrt(Math.max(0,Math.sin(Math.PI*phase))),p.taper);
+  const light=(phase<.5?interpolate(p.vA,p.vM,phase*2):interpolate(p.vM,p.vB,(phase-.5)*2))*p.intensity;
+  if(width<1)put(result,n,Math.floor(point[0]*n),Math.floor(point[1]*n),light);
+  else disk(result,n,point[0]*n,point[1]*n,width/2,light);
  }
- return out;
+ return result;
 }
 export function spikeRaster(n,p){
- const out=buffer(n),a=[p.x0*n,p.y0*n],b=[lerp(p.x0,p.x1,p.grow)*n,lerp(p.y0,p.y1,p.grow)*n];
- const dx=b[0]-a[0],dy=b[1]-a[1],length=Math.hypot(dx,dy);if(!length||p.width<=0)return out;
+ const result=surface(n),ax=p.x0*n,ay=p.y0*n,dx=(p.x1-p.x0)*n*p.grow,dy=(p.y1-p.y0)*n*p.grow,len=Math.hypot(dx,dy);
+ if(p.grow<=0||len<.5*p.grow||p.width<=0||p.intensity<=0)return result;
  for(let y=0;y<n;y++)for(let x=0;x<n;x++){
-  const ox=x+.5-a[0],oy=y+.5-a[1],t=(ox*dx+oy*dy)/(length*length),d=(oy*dx-ox*dy)/length;
-  if(t<0||t>1)continue;
-  const width=p.width/2*lerp(1,(1-t)**p.taperPow,p.taper);if(Math.abs(d)>width)continue;
-  let value=lerp(p.base,p.tip,t)+p.facet*d/Math.max(width,1)+p.ridge*Math.exp(-d*d);
-  if(p.shine>=0)value+=p.shineAmp*Math.exp(-(((t-p.shine)/Math.max(.001,p.shineW))**2));
-  ink(out,n,x,y,value*p.intensity);
+  const ox=x+.5-ax,oy=y+.5-ay,t=(ox*dx+oy*dy)/(len*len),cross=(ox*(-dy)+oy*dx)/len;
+  const width=p.width/2*interpolate(1,Math.pow(Math.max(0,1-t),p.taperPow),p.taper);
+  if(t<0||t>1||Math.abs(cross)>width)continue;
+  let light=interpolate(p.base,p.tip,t);
+  if((cross<0)===(p.facet>=0))light+=Math.abs(p.facet);
+  if(Math.abs(cross)<.75)light+=p.ridge;
+  if(p.shine>=0)light+=p.shineAmp*Math.max(0,1-Math.abs(t-p.shine)/p.shineW);
+  put(result,n,x,y,sat(light)*p.intensity);
  }
- return out;
+ return result;
+}
+function stampParticle(result,n,x,y,size,light,p,vx,vy){
+ const cx=Math.floor(x),cy=Math.floor(y),side=Math.round(size),r=Math.floor(side/2);
+ if(p.pshape==='dot'||size<1.5){if(size>=.5||p.pshape==='dot')put(result,n,cx,cy,light,true);return;}
+ if(p.pshape==='streak'){
+  const speed=Math.hypot(vx,vy)||1,length=size+speed*p.stretch,steps=Math.max(1,Math.ceil(length*2)),visited=new Set();
+  for(let k=0;k<=steps;k++){const t=k/steps,px=Math.floor(x-vx/speed*length*t),py=Math.floor(y-vy/speed*length*t),key=px+':'+py;if(visited.has(key))continue;visited.add(key);put(result,n,px,py,light*(1-.85*t),true);}return;
+ }
+ const first=p.pshape==='square'?-Math.floor((side-1)/2):-r,last=p.pshape==='square'?first+side-1:r;
+ for(let j=first;j<=last;j++)for(let i=first;i<=last;i++){
+  const manhattan=Math.abs(i)+Math.abs(j);
+  const included=p.pshape==='square'||(p.pshape==='diamond'?manhattan<=r:p.pshape==='plus'?i===0||j===0:i*i+j*j<=side*side/4);
+  if(included)put(result,n,cx+i,cy+j,light*(p.pshape==='plus'&&manhattan>0?1-(manhattan-1)/(r+1)*.5:1),true);
+ }
 }
 export function particlesRaster(n,frames,frame,p){
- const out=buffer(n);
- for(let i=0;i<p.count;i++){
-  const rand=channel=>sample(p.seed,i,channel),duration=Math.max(1,p.life*frames*(1-p.lifeVar*rand(1)));
-  const birth=p.start*frames+(p.emit==='stream'?i/p.count*p.span*frames:0);
-  let age=frame-birth;if(p.loop)age=((age%frames)+frames)%frames;if(age<0||age>=duration)continue;
-  const radial=rand(2)*tau,reach=p.area==='ring'?1:Math.sqrt(rand(3));
-  let dx=0,dy=0;
-  if(p.area==='circle'||p.area==='ring'){dx=Math.cos(radial)*reach*p.aw;dy=Math.sin(radial)*reach*p.ah;}
-  if(p.area==='box'||p.area==='line'){dx=(rand(2)-.5)*p.aw;dy=p.area==='box'?(rand(3)-.5)*p.ah:0;}
-  let a=angle(p.angle+(rand(4)-.5)*p.spread);
-  if(p.dirMode==='outward'||p.dirMode==='inward')a=(dx||dy?Math.atan2(dy,dx):radial)+(p.dirMode==='inward'?Math.PI:0);
-  const speed=p.speed*lerp(1-p.speedVar,1,rand(5)),vx=Math.cos(a)*speed,vy=Math.sin(a)*speed;
-  const drag=-Math.log(Math.max(.001,1-p.drag)),travel=drag?(1-Math.exp(-drag*age))/drag:age;
-  let x=p.x*n+dx+vx*travel,y=p.y*n+dy+vy*travel+p.gravity*age*age/2;
-  if(p.ground>0&&y>p.ground)y=p.ground-(y-p.ground)*p.bounce;
-  x+=Math.sin(age*.2+rand(6)*tau)*p.turb;y+=Math.sin(age*.3+rand(7)*tau)*p.turb;
-  const t=age/duration,size=lerp(p.sizeA,p.sizeB,t),fade=p.fade==='flat'?1:p.fade==='inout'?4*t*(1-t):1-t;
-  const blink=p.fade==='flicker'?(sample(p.seed,i,Math.floor(age)+10)>.3?1:.2):1;
-  const value=p.bright*(1-p.brightVar*rand(8))*fade*blink,r=size/2;if(r<=0)continue;
-  if(p.pshape==='streak'){line(out,n,[x,y],[x-vx*p.stretch*size,y-vy*p.stretch*size],Math.max(1,size*.3),value);continue;}
-  if(p.pshape==='dot'){ink(out,n,x,y,value,true);continue;}
-  if(p.pshape==='circle'){disk(out,n,x,y,r,value,true);continue;}
-  for(let sy=-Math.ceil(r);sy<=Math.ceil(r);sy++)for(let sx=-Math.ceil(r);sx<=Math.ceil(r);sx++){
-   const valid=p.pshape==='square'?Math.max(Math.abs(sx),Math.abs(sy))<=r:p.pshape==='plus'?(sx===0||sy===0)&&Math.max(Math.abs(sx),Math.abs(sy))<=r:Math.abs(sx)+Math.abs(sy)<=r;
-   if(valid)ink(out,n,x+sx,y+sy,value,true);
-  }
+ const result=surface(n);
+ for(let index=0;index<Math.round(p.count);index++){
+  const sequence=seededSequence((p.seed*9973+index*131)|0),samples=Array.from({length:8},sequence);
+  const birth=p.start*frames+(p.emit==='burst'?samples[0]*1.5:(index+samples[0])/p.count*p.span*frames);
+  const duration=Math.max(1,p.life*frames*(1-p.lifeVar*samples[1]));
+  let age=frame-birth;if(p.loop)age=fraction(age/frames)*frames;if(age<0||age>=duration)continue;
+  let x0=p.x*n,y0=p.y*n;
+  if(p.area==='circle'||p.area==='ring'){const a=samples[2]*TAU,r=p.area==='circle'?Math.sqrt(samples[3]):1;x0+=Math.cos(a)*r*p.aw;y0+=Math.sin(a)*r*p.ah;}
+  else if(p.area==='box'||p.area==='line'){x0+=(samples[2]-.5)*p.aw;if(p.area==='box')y0+=(samples[3]-.5)*p.ah;}
+  const ox=x0-p.x*n,oy=y0-p.y*n;
+  const direction=p.dirMode==='outward'?(Math.hypot(ox,oy)>.1?Math.atan2(oy,ox):samples[4]*TAU)+deg((samples[4]-.5)*p.spread*.25):deg(p.angle+(samples[4]-.5)*p.spread);
+  const speed=p.speed*(1-p.speedVar*samples[5]),ix=p.dirMode==='inward'?-ox/duration*p.speed:Math.cos(direction)*speed,iy=p.dirMode==='inward'?-oy/duration*p.speed:Math.sin(direction)*speed;
+  const retain=1-p.drag,decay=retain**age,distance=p.drag?(1-decay)/p.drag:age;
+  let vx=ix*decay,vy=iy*decay+p.gravity*age,x=x0+ix*distance,y=y0+iy*distance+p.gravity*age*age/2;
+  if(p.ground>0){x=x0;y=y0;vx=ix;vy=iy;for(let k=0;k<Math.floor(age);k++){vx*=retain;vy=vy*retain+p.gravity;x+=vx;y+=vy;if(y>p.ground){y=p.ground;vx*=.7;vy=-vy*p.bounce;}}}
+  x+=Math.sin(age*.35+samples[6]*TAU)*p.turb;y+=Math.cos(age*.27+samples[7]*TAU)*p.turb*.5;
+  const t=age/duration,fade=p.fade==='flat'?1:p.fade==='inout'?Math.sin(Math.PI*t):p.fade==='flicker'?(1-t)*(cellSample(index,frame,p.seed)>.4?1:.35):1-t;
+  const light=fade*p.bright*(1-p.brightVar*cellSample(index,7,p.seed));
+  if(light>0)stampParticle(result,n,x,y,interpolate(p.sizeA,p.sizeB,t),light,p,vx,vy);
  }
- return out;
+ return result;
 }
 export function lightningRaster(n,frame,p){
- const out=buffer(n),phase=p.rate?Math.floor(frame/p.rate):0;
- let points=[[p.x0*n,p.y0*n],[lerp(p.x0,p.x1,p.grow)*n,lerp(p.y0,p.y1,p.grow)*n]];
- for(let level=0;level<p.detail;level++){
-  const refined=[points[0]];
-  for(let i=1;i<points.length;i++){
-   const a=points[i-1],b=points[i],dx=b[0]-a[0],dy=b[1]-a[1],jitter=(sample(p.seed+phase,level*128+i)-.5)*p.jag;
-   refined.push([(a[0]+b[0])/2-dy*jitter,(a[1]+b[1])/2+dx*jitter],b);
-  }
-  points=refined;
+ const result=surface(n),random=seededSequence(p.seed+(p.rate?Math.floor(frame/p.rate):0)*7919);
+ function branch(a,b,depth,width,light){
+  if(depth<=0){const steps=Math.max(1,Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])*2));for(let k=0;k<=steps;k++)disk(result,n,interpolate(a[0],b[0],k/steps),interpolate(a[1],b[1],k/steps),width/2,light);return;}
+  const dx=b[0]-a[0],dy=b[1]-a[1],offset=(random()-.5)*p.jag,m=[(a[0]+b[0])/2-dy*offset,(a[1]+b[1])/2+dx*offset];
+  branch(a,m,depth-1,width,light);branch(m,b,depth-1,width,light);
+  if(depth>1&&random()<p.branch)branch(m,[m[0]+(dx-dy)*p.branchLen,m[1]+(dy+dx)*p.branchLen],depth-2,Math.max(.5,width*.7),light*.65);
  }
- for(let i=1;i<points.length;i++){
-  line(out,n,points[i-1],points[i],p.thick,p.intensity);
-  if(sample(p.seed+phase,i,1)<p.branch){const a=points[i],direction=sample(p.seed+phase,i,2)*tau;line(out,n,a,[a[0]+Math.cos(direction)*n*p.branchLen*.2,a[1]+Math.sin(direction)*n*p.branchLen*.2],p.thick*.6,p.intensity*.5);}
- }
- return out;
+ branch([p.x0*n,p.y0*n],[interpolate(p.x0,p.x1,p.grow)*n,interpolate(p.y0,p.y1,p.grow)*n],Math.round(p.detail),p.thick,p.intensity);
+ return result;
 }
