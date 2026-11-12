@@ -13,12 +13,12 @@ async function request(path, options = {}) {
   }, signal: AbortSignal.timeout(timeout)});
   if (!r.ok) {
     const x = await r.json().catch(() => ({}));
-    throw Error(x.error || '요청에 실패했습니다. PC 연결 프로그램을 확인해 주세요.');
+    const error=Error(x.error || '요청에 실패했습니다. PC 연결 프로그램을 확인해 주세요.');error.status=r.status;throw error;
   }
   return r;
 }
 let signature = '', referenceSignature = '', urls = [], editingCount = 0;
-let references = new Map(), library = [], online = false, uploading = false, submitting = false;
+let references = new Map(), library = [], online = false, uploading = false, submitting = false, refreshing=false;
 const setMessage = message => { $('message').textContent = message; };
 function updateGenerate() { $('generate').disabled = !online || uploading || submitting; }
 function describeReference() {
@@ -122,16 +122,22 @@ function renderTracks(items) {
   if (!items.length) $('tracks').textContent='첫 음악을 만들어 보세요.';
 }
 async function refresh() {
+  if(refreshing)return;refreshing=true;
   try {
     const status=await(await request('/status')).json();
     if (!status.referenceAudio) throw Error('PC 연결 프로그램을 다시 실행해 업데이트해 주세요.');
-    online=true; $('state').textContent='● 내 PC 연결됨'; $('storage-path').textContent=status.libraryPath;
+    online=status.engineReady!==false; $('state').textContent=online?'● 내 PC 연결됨':'● PC 연결됨 · 음악 엔진 준비 중'; $('storage-path').textContent=status.libraryPath;
+    $('connection-help').textContent=online?'ComfyUI가 준비되었습니다. 음악을 생성하거나 보관함에서 재생할 수 있습니다.':'PC 보관함은 사용할 수 있습니다. 엔진을 막 실행했다면 잠시 기다리고, 계속 준비 중이면 PC 프로그램 실행을 다시 눌러 주세요.';
     const [saved,uploaded]=await Promise.all([request('/library').then(r=>r.json()),request('/references').then(r=>r.json())]);
     library=saved.items;syncReferences(library,uploaded.items);renderTracks(library);
   } catch(e) {
-    online=false;$('state').textContent=e.message.includes('업데이트')?e.message:'PC 연결 안 됨 · 연결 프로그램과 브라우저 권한을 확인해 주세요.';
-  } finally { updateGenerate(); }
+    online=false;
+    if(e.status===401){$('state').textContent='PC 실행 중 · 공방 연결 필요';$('connection-help').textContent='‘공방에 연결’을 누르고, 연결 화면의 ‘공방에 연결하고 돌아가기’를 눌러 주세요.';}
+    else if(e.status===503){$('state').textContent='음악 엔진 준비 필요';$('connection-help').textContent='PC 프로그램 실행을 눌러 ComfyUI를 시작해 주세요.';}
+    else {$('state').textContent=e.message.includes('업데이트')?e.message:'PC 연결 안 됨';$('connection-help').textContent='먼저 PC 프로그램 실행을 눌러 주세요. 이미 실행 중이면 브라우저의 로컬 네트워크 접근을 허용하고 다시 확인을 누르세요.';}
+  } finally { refreshing=false;updateGenerate(); }
 }
+$('launch-pc').onclick=()=>{$('connection-help').textContent='브라우저의 프로그램 열기 안내를 허용해 주세요. 연결 화면이 열리면 공방에 연결하고 돌아가기를 누르세요.';};
 $('refresh').onclick=refresh;
 $('form').onsubmit=async e=>{
   e.preventDefault(); submitting=true;updateGenerate();

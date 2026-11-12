@@ -22,12 +22,20 @@ bgm/runtime/.venv/Scripts/python.exe bgm/local_bgm/download_models.py
 ```powershell
 # 다른 터미널에서 npm run dev를 실행한 다음:
 $env:WORKSHOP_ORIGIN='http://127.0.0.1:4173'
-./bgm/start_bgm.ps1
+./bgm/start_bgm.ps1 -OpenPair
 ```
 
 웹사이트의 BGM 공방에서 **PC 연결**을 누르세요. 브라우저가 로컬 네트워크 접근을 묻는 경우 사용자가 허용해야 합니다. 브리지는 127.0.0.1:8190, ComfyUI는 127.0.0.1:8188에서만 실행됩니다. 이미 해당 포트에서 다른 공방 브리지가 실행 중이면 먼저 해당 브리지를 종료하거나 다른 PC에서 실행하세요. 두 작업실은 같은 포트를 동시에 사용할 수 없습니다.
 
 다른 웹사이트에서 연결하려면 브리지를 시작하기 전에 `WORKSHOP_ORIGIN`을 그 사이트의 정확한 origin으로 지정하세요. 연결 키는 `bgm/runtime/.bridge_key`에 보관하며 Git에 포함하지 않습니다. 공개 서버로 브리지를 노출하지 마세요.
+
+## PC 실행과 연결 상태
+
+준비를 마친 뒤 루트의 `BGM 공방 실행.cmd`를 실행하면 ComfyUI와 브리지를 시작하고 준비가 확인된 뒤 연결 페이지를 엽니다. 첫 실행은 현재 Windows 사용자에게 `dusk-bgm-public://start` 처리기를 등록합니다. 이후 웹의 **PC 프로그램 실행** 버튼으로 다시 켤 수 있습니다. 공개판은 비공개판의 실행 처리기를 덮어쓰지 않습니다. Windows 로그인 시 자동 실행되는 기능은 아닙니다.
+
+`WORKSHOP_ORIGIN`은 첫 실행 시 `bgm/runtime/.workshop_origin`에 저장되어 웹 버튼으로 실행할 때도 유지됩니다. 연결 사이트를 바꾸려면 새 환경변수로 다시 실행하세요. 다른 공방이 8190 포트를 사용 중이면 기존 프로세스를 종료하지 않고 오류를 알립니다.
+
+브리지가 준비되어도 ComfyUI는 잠시 준비 중일 수 있습니다. 이때 기존 음원 목록과 재생은 사용할 수 있고 새 생성은 엔진 준비 후 진행합니다. 시작 실패 내역은 `bgm/runtime/logs/launcher.error.log`, 브리지와 ComfyUI 로그는 같은 폴더에서 확인하세요. `/health`는 연결 프로그램과 엔진의 준비 상태만 반환하며 연결 키와 음원 경로를 공개하지 않습니다.
 
 ## 저장과 레퍼런스
 

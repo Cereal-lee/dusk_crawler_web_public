@@ -84,6 +84,33 @@ class RenameTests(unittest.TestCase):
         self.assertEqual(self.request('new title', token='wrong')[0], 401)
         self.assertEqual(self.request('new title', origin='https://example.test')[0], 403)
 
+    def test_health_and_library_remain_available_while_engine_starts(self):
+        def get(path, token=None, origin=bridge.ORIGIN):
+            conn=http.client.HTTPConnection('127.0.0.1', self.server.server_port)
+            headers={'Host':'127.0.0.1:8190','Origin':origin}
+            if token: headers['Authorization']='Bearer '+token
+            conn.request('GET',path,headers=headers)
+            response=conn.getresponse();result=(response.status,json.loads(response.read()));conn.close();return result
+        with patch.object(bridge,'engine_ready',return_value=False):
+            status,health=get('/health')
+            self.assertEqual(status,200);self.assertFalse(health['engineReady'])
+            self.assertNotIn('libraryPath',health);self.assertNotIn('key',health)
+            self.assertEqual(health['edition'],'public');self.assertEqual(health['workshopOrigin'],bridge.ORIGIN)
+            self.assertEqual(get('/health',origin='https://other.test')[0],403)
+            self.assertEqual(get('/status')[0],401)
+            status,detail=get('/status','test-only-token')
+            self.assertEqual(status,200);self.assertFalse(detail['engineReady'])
+            self.assertEqual(get('/library','test-only-token')[0],200)
+
+    def test_pair_page_returns_configured_workshop_without_import_shadowing(self):
+        connection = http.client.HTTPConnection('127.0.0.1', self.server.server_port)
+        connection.request('GET', '/pair', headers={'Host':'127.0.0.1:8190'})
+        response = connection.getresponse()
+        status, page = response.status, response.read().decode('utf-8')
+        connection.close()
+        self.assertEqual(status, 200)
+        self.assertIn(bridge.ORIGIN + '/bgm/#key=test-only-token', page)
+
     def test_generate_reference_and_120_seconds(self):
         payload = {'title':'variation', 'prompt':'warm piano', 'duration':120, 'bpm':100,
                    'reference':{'type':'library','id':self.job['id']}, 'strength':0.45}

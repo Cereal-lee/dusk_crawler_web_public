@@ -1,9 +1,10 @@
+param([string]$RuntimeRoot = (Join-Path (Split-Path $PSScriptRoot -Parent) 'runtime'))
 $ErrorActionPreference = 'Stop'
-$bgmRoot = Join-Path (Split-Path $PSScriptRoot -Parent) 'runtime'
+$bgmRoot = $RuntimeRoot
 $portOwner = Get-NetTCPConnection -LocalAddress 127.0.0.1 -LocalPort 8188 -State Listen -ErrorAction SilentlyContinue
 if ($portOwner) {
     Write-Output 'Port 8188 is already in use. Existing service was left running.'
-    exit 0
+    return
 }
 $logRoot = Join-Path $bgmRoot 'logs'
 New-Item -ItemType Directory -Path $logRoot -Force | Out-Null

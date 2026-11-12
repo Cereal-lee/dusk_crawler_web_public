@@ -1,4 +1,5 @@
 import {ART_MODELS,artConfig,artRecipe} from './art_config.mjs';
+import {persistImportedArt} from './art_import.mjs';
 import {base64} from '../pxf/png.mjs';
 
 const artJson=(v,status=200)=>new Response(JSON.stringify(v),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});
@@ -58,6 +59,13 @@ export async function handleArt(request,env={},fetcher=fetch,assets={}) {
       await env.BUCKET.put(artObjectKey(user,id),bytes,{httpMetadata:{contentType:'image/png'}});
       await query('INSERT INTO art_jobs (user_id,id,kind,title,status,config_json,created_at,processed) VALUES (?,?,?,?,?,?,?,0)',user,id,'reference',String(body.title||'업로드 이미지').slice(0,100),'uploaded','{}',now).run();
       return artJson({item:artRow(await get(id))},201);
+    }
+    if(url.pathname==='/api/art/import'&&request.method==='POST') {
+      const body=await artReadBody(request);
+      if(!artId(body.id))throw Error('올바른 작품 ID가 필요합니다.');
+      if(!['image','item'].includes(body.config?.kind))throw Error('이미지·아이템 작품만 가져올 수 있습니다.');
+      const config=artConfig({...body.config,refs:[]});
+      return artJson({item:await persistImportedArt({body,user,env,get,query,config,png:artPng,asRow:artRow})},201);
     }
     if(url.pathname==='/api/art'&&request.method==='POST') {
       if(!env.OPENAI_API_KEY)return artJson({error:'OpenAI API 연결이 필요합니다.'},503);

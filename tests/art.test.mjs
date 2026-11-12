@@ -14,6 +14,20 @@ function fixture(){const db=localDatabase(),objects=new Map();let generations=0;
  const call=(path,method='GET',body,user='owner',from=origin)=>handleArt(new Request(origin+'/api/art'+path,{method,headers:{...(user?{'oai-authenticated-user-id':user}:{}),Origin:from,'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})}),env,fetcher,{});
  return {db,call,objects,generations:()=>generations};}
 const input={id,kind:'image',prompt:'A sword',model:'gpt-image-2.5-flare'};
+test('completed artwork import preserves recipe, stays account-scoped and never generates',async()=>{
+ const f=fixture();try {
+  const body={id,config:input,originalPng:pngData,processedPng:pngData,provenance:{source:'workshop',requestPrompt:'test',generationPrompt:'expanded test',engine:'Blender',parameters:{width:2,height:2,paletteLimit:16},script:{name:'finish.py',text:'print("recipe")'}}};
+  assert.equal((await f.call('/import','POST',body,null)).status,401);
+  assert.equal((await f.call('/import','POST',body,'owner','https://other.test')).status,403);
+  const first=await f.call('/import','POST',body);assert.equal(first.status,201);
+  const item=(await first.json()).item;assert.equal(item.processed,true);assert.equal(item.status,'completed');assert.equal(item.export.provenance.script.text,'print("recipe")');
+  assert.equal((await f.call('/import','POST',body)).status,201);assert.equal((await (await f.call('')).json()).items.length,1);assert.equal(f.generations(),0);
+  assert.equal((await f.call('/'+id+'/original','GET',undefined,'other')).status,404);
+  assert.equal((await f.call('/import','POST',{...body,config:{...input,prompt:'changed'}})).status,400);
+  assert.equal((await f.call('/import','POST',{...body,id:'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',provenance:{...body.provenance,parameters:{width:3,height:2}}})).status,400);
+  assert.equal((await (await f.call('')).json()).items[0].config.prompt,'A sword');
+ }finally{f.db.close();}
+});
 test('art generation persists, deduplicates and finalizes exactly one request',async()=>{const f=fixture();try{
  assert.equal((await f.call('','POST',input,null)).status,401);
  assert.equal((await f.call('','POST',input,'owner','https://other.test')).status,403);

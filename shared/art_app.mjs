@@ -1,4 +1,5 @@
 import './shell.mjs';
+import {showProvenance,installArtImporter} from './art_provenance.mjs';
 import {ANIMS,PROPORTIONS} from '../sd/anims.mjs';
 import {artConfig,artRecipe} from './art_config.mjs';
 import {processArtwork,loadBitmap,godotArtFrames} from './art_process.mjs';
@@ -30,6 +31,9 @@ async function select(item){selected=item;clearInterval(animation);previewBitmap
  preview.innerHTML=`<img src="${item.imageUrl||item.originalUrl}" alt="${escape(item.title)}">`;
  result.innerHTML=`<h2 class="result-title">${escape(item.title)}</h2><p class="result-info">${escape(item.config.model||'업로드 이미지')} · ${escape(item.config.folder||'내 작품')}</p><div class="result-toolbar"><button data-op="reference">기준 작품으로 사용</button><button data-op="reuse">설정 불러오기</button><button data-op="png">${kind==='item'?'256px 아이콘':'PNG'} ↓</button><button data-op="original">생성 원본 ↓</button><button data-op="json">설정 JSON ↓</button>${item.export?.grid?'<button data-op="tres">Godot TRES ↓</button><button data-op="frame">현재 프레임을 기준으로</button>':''}<button data-op="rename">제목 수정</button><button data-op="delete">삭제</button></div>`;
  result.querySelectorAll('[data-op]').forEach(b=>b.onclick=()=>operate(b.dataset.op).catch(e=>notice(e.message,true)));
+ showProvenance(result,item,download);
+ preview.classList.toggle('pixel-art',!!item.export?.provenance);
+ if(item.export?.width)result.querySelector('[data-op="png"]').textContent=`PNG ${item.export.width}×${item.export.height} ↓`;
  if(!item.processed&&item.kind!=='reference'){
   if(processing)return;processing=true;notice('게임용 PNG를 정리하고 서버에 저장하는 중…');try{const canvas=await processArtwork(item),saved=await api('/'+item.id+'/processed','POST',{png:canvas.toDataURL('image/png'),width:canvas.width,height:canvas.height});upsert(saved.item);if(selected?.id===item.id){processing=false;await select(saved.item);}notice('완료했습니다. 계정 보관함에 저장되었습니다.');}catch(e){notice('원본은 저장되었습니다. 후처리 재시도: 작품을 다시 선택하세요. '+e.message,true);}finally{processing=false;}return;
  }
@@ -52,4 +56,5 @@ $('#pick-ref').onclick=()=>{$('#ref-list').replaceChildren(...items.filter(i=>i.
 form.onsubmit=async e=>{e.preventDefault();const button=$('#generate');try{const input=config();button.disabled=true;notice('생성 요청을 등록하는 중…');const count=Number($('#batch-count').value);let last;for(let i=0;i<count;i++){notice(`시안 ${i+1} / ${count} 요청 등록 중…`);const data=await api('','POST',{...input,title:input.title+(count>1?' · '+(i+1):''),id:crypto.randomUUID()});upsert(data.item);last=data.item;if(last.error)throw Error(last.error);}await select(last);notice(count+'개 요청을 등록했습니다. 생성 중 다른 메뉴로 이동해도 됩니다.');}catch(e){notice(e.message,true);}finally{button.disabled=!$('#model').value;}};
 async function poll(){if(polling||document.hidden)return;polling=true;try{for(const item of items.filter(i=>['generating','submitting'].includes(i.status))){const data=await api('/'+item.id+'/poll','POST',{});upsert(data.item);if(selected?.id===item.id&&data.item.status!==selected.status)await select(data.item);}if(!selected){const pending=items.find(i=>i.kind===kind&&i.status==='completed'&&!i.processed);if(pending)await select(pending);}}catch(e){notice(e.message,true);}finally{polling=false;}}
 async function init(){try{await refresh();const data=await api('/models');$('#model').innerHTML=choices(data.models.map(id=>[id,id]));$('#generate').disabled=!data.models.length;$('#connection').textContent=data.models.length?'● OpenAI API 연결됨':'사용 가능한 이미지 모델 없음';updateRecipe();const latest=items.find(i=>i.kind===kind);if(latest)await select(latest);await poll();}catch(e){$('#connection').textContent='연결 확인 필요';notice(e.message,true);}setInterval(poll,5000);}
+installArtImporter({host:$('.library-heading'),api,upsert,select,notice,kind});
 init();

@@ -26,6 +26,14 @@ TOKEN = KEY.read_text(encoding='utf-8').strip()
 pool = ThreadPoolExecutor(max_workers=1)
 lock = threading.Lock()
 
+def engine_ready():
+    try:
+        with urllib.request.urlopen('http://127.0.0.1:8188/system_stats', timeout=2) as response:
+            data = json.load(response)
+        return isinstance(data, dict) and 'system' in data and 'devices' in data
+    except (OSError, ValueError):
+        return False
+
 def read_job(i):
     return json.loads((DATA / i / 'metadata.json').read_text(encoding='utf-8'))
 
@@ -85,14 +93,16 @@ class Handler(BaseHTTPRequestHandler):
     def do_OPTIONS(self):
         if self.guard(False): self.send(200,{})
     def do_GET(self):
+        if self.path=='/health':
+            if not self.guard(False): return
+            return self.send(200,{'application':'dusk-bgm-bridge','edition':'public','workshopOrigin':ORIGIN,'version':2,'engineReady':engine_ready()})
         if self.path=='/pair':
             if not self.guard(False): return
-            html='<meta charset="utf-8"><title>BGM PC 연결</title><body style="background:#121719;color:#eee;font:18px sans-serif;padding:50px"><h1>내 PC의 BGM 공방 연결</h1><p>이 PC에서 생성한 음악을 공방에서 듣고 저장합니다.</p><a style="color:#c9f58a" href="'+html.escape(ORIGIN, quote=True)+'/bgm/#key='+TOKEN+'">공방에 연결하고 돌아가기 →</a><p>PC와 연결 프로그램이 켜져 있어야 합니다.</p></body>'
-            return self.send(200,html.encode(),'text/html; charset=utf-8')
+            pair_html='<meta charset="utf-8"><title>BGM PC 연결</title><body style="background:#121719;color:#eee;font:18px sans-serif;padding:50px"><h1>내 PC의 BGM 공방 연결</h1><p>이 PC에서 생성한 음악을 공방에서 듣고 저장합니다.</p><a style="color:#c9f58a" href="'+html.escape(ORIGIN, quote=True)+'/bgm/#key='+TOKEN+'">공방에 연결하고 돌아가기 →</a><p>PC와 연결 프로그램이 켜져 있어야 합니다.</p></body>'
+            return self.send(200,pair_html.encode(),'text/html; charset=utf-8')
         if not self.guard(): return
         if self.path=='/status':
-            try: api('/system_stats'); return self.send(200,{'online':True,'libraryPath':str(DATA.resolve()),'maxDuration':MAX_DURATION,'referenceAudio':True})
-            except: return self.send(503,{'error':'ComfyUI를 실행해 주세요.'})
+            return self.send(200,{'online':True,'engineReady':engine_ready(),'libraryPath':str(DATA.resolve()),'maxDuration':MAX_DURATION,'referenceAudio':True,'version':2})
         if self.path=='/library':
             return self.send(200,{'items':sorted([read_job(p.name) for p in DATA.iterdir() if (p/'metadata.json').exists()],key=lambda j:j['createdAt'],reverse=True)})
         if self.path=='/references': return self.send(200,{'items':list_uploads(UPLOADS)})
